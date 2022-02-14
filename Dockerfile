@@ -1,12 +1,8 @@
 # syntax = docker/dockerfile:1.3-labs
 FROM archlinux:base-devel
 
-ARG USERNAME=virtual
-ARG UID=1000
-ARG GID=1000
-ARG SSHD_PORT=22
-ARG PACKAGES="git sudo curl ca-certificates openssh nano python python-pip rust jdk-openjdk nodejs npm go docker docker-compose"
-ARG PYTHON_PACKAGES="flake8 pylint rope xonsh"
+ARG PACKAGES="git sudo htop curl ca-certificates openssh nano python python-pip rust jdk-openjdk nodejs npm go docker docker-compose xonsh python-prompt_toolkit"
+ARG PYTHON_PACKAGES="flake8 pylint rope tweepy"
 
 ENV TZ=Asia/Tokyo
 ENV EDITOR=/usr/bin/nano
@@ -18,15 +14,8 @@ RUN <<EOF
     pacman -S --clean --noconfirm
 EOF
 
-# Grand sudo
-RUN echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
-
-# Create user
-RUN <<EOF
-    groupadd --gid ${GID} ${USERNAME}
-    useradd -m --uid ${UID} --gid ${GID} ${USERNAME}
-EOF
-
+# Create temporary user
+RUN useradd -N -G wheel virtual
 USER virtual
 
 # yay
@@ -38,19 +27,15 @@ RUN <<EOF
     rm -rf /tmp/yay
 EOF
 
+# Delete temporary user
+USER root
+RUN <<EOF
+    userdel virtual
+    rm -rf /home/virtual
+EOF
+
 # Python
 RUN pip install --no-cache-dir ${PYTHON_PACKAGES}
 
-# SDKMAN
-RUN <<EOF
-    sudo pacman -Sy zip unzip
-    curl -s https://get.sdkman.io | bash
-    bash -c "source ${HOME}/.sdkman/bin/sdkman-init.sh"
-    sudo pacman -S --clean --noconfirm
-EOF
-
-# openssh
-USER root
-RUN ssh-keygen -A
-
-CMD [ "/usr/sbin/sshd", "-D" ]
+LABEL org.opencontainers.image.source https://github.com/StarryBlueSky/venv
+CMD [ "/usr/sbin/sshd", "-D", "-e" ]
